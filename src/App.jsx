@@ -323,7 +323,7 @@ const CSS = `
   display:flex; justify-content:center; box-sizing:border-box;
 }
 .pl-app *{ box-sizing:border-box; }
-.pl-shell{ width:100%; max-width:440px; padding:24px 18px 60px; position:relative; }
+.pl-shell{ width:100%; max-width:440px; padding:calc(env(safe-area-inset-top) + 44px) 18px calc(env(safe-area-inset-bottom) + 60px); position:relative; }
 .pl-display{ font-family:'Anton',sans-serif; font-weight:400; }
 .pl-mono{ font-family:'IBM Plex Mono',monospace; }
 
