@@ -1,6 +1,24 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Circle, RotateCcw, Sunrise } from "lucide-react";
 
+const storage = {
+  async get(key) {
+    try {
+      return { value: window.localStorage.getItem(key) };
+    } catch {
+      return { value: null };
+    }
+  },
+  async set(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};
+
 /* ---------- date / math helpers ---------- */
 
 function parseISO(dateStr) {
@@ -98,7 +116,7 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await window.storage.get(STORAGE_KEY, false);
+        const res = await storage.get(STORAGE_KEY);
         if (!cancelled) {
           if (res && res.value) {
             const parsed = JSON.parse(res.value);
@@ -152,7 +170,7 @@ export default function App() {
       for (let i = 0; i < attempts; i++) {
         if (cancelled) return;
         try {
-          const result = await window.storage.set(STORAGE_KEY, payload, false);
+          const result = await storage.set(STORAGE_KEY, payload);
           if (result) return; // saved fine, say nothing
         } catch {
           // fall through to retry
