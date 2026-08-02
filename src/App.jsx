@@ -75,6 +75,14 @@ function toEmojiNumber(n) {
     .map((ch) => EMOJI_DIGITS[Number(ch)] ?? ch)
     .join("");
 }
+function formatTime(ts) {
+  const d = new Date(ts);
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12 || 12;
+  return `${h}:${m}${ampm}`;
+}
 
 const STORAGE_KEY = "ladder-today-v1";
 
@@ -82,7 +90,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   // `day` is the ladder's pinned active date — it does NOT follow the clock.
   // It only changes when the user taps "Go to Current Day".
-  const [day, setDay] = useState({ date: null, checked: [] });
+  const [day, setDay] = useState({ date: null, checked: [], times: [] });
   const [confirmReset, setConfirmReset] = useState(false);
   const [toast, setToast] = useState(null);
   const [, forceTick] = useState(0);
@@ -122,24 +130,29 @@ export default function App() {
             const parsed = JSON.parse(res.value);
             if (parsed && typeof parsed.date === "string" && Array.isArray(parsed.checked)) {
               const expected = setsForDate(parsed.date);
-              const checked =
-                parsed.checked.length === expected.length
-                  ? parsed.checked
-                  : new Array(expected.length).fill(false);
-              setDay({ date: parsed.date, checked });
+              const sameLength = parsed.checked.length === expected.length;
+              const checked = sameLength ? parsed.checked : new Array(expected.length).fill(false);
+              const times =
+                sameLength && Array.isArray(parsed.times) && parsed.times.length === expected.length
+                  ? parsed.times
+                  : new Array(expected.length).fill(null);
+              setDay({ date: parsed.date, checked, times });
             } else {
               const t = todayISO();
-              setDay({ date: t, checked: new Array(setsForDate(t).length).fill(false) });
+              const len = setsForDate(t).length;
+              setDay({ date: t, checked: new Array(len).fill(false), times: new Array(len).fill(null) });
             }
           } else {
             const t = todayISO();
-            setDay({ date: t, checked: new Array(setsForDate(t).length).fill(false) });
+            const len = setsForDate(t).length;
+            setDay({ date: t, checked: new Array(len).fill(false), times: new Array(len).fill(null) });
           }
         }
       } catch {
         if (!cancelled) {
           const t = todayISO();
-          setDay({ date: t, checked: new Array(setsForDate(t).length).fill(false) });
+          const len = setsForDate(t).length;
+          setDay({ date: t, checked: new Array(len).fill(false), times: new Array(len).fill(null) });
         }
       } finally {
         if (!cancelled) {
@@ -190,20 +203,27 @@ export default function App() {
 
   const toggleSet = (idx) => {
     setDay((prev) => {
-      const next = [...prev.checked];
-      next[idx] = !next[idx];
-      return { ...prev, checked: next };
+      const nextChecked = [...prev.checked];
+      const nextTimes = [...prev.times];
+      nextChecked[idx] = !nextChecked[idx];
+      nextTimes[idx] = nextChecked[idx] ? Date.now() : null;
+      return { ...prev, checked: nextChecked, times: nextTimes };
     });
   };
 
   const resetToday = () => {
-    setDay((prev) => ({ ...prev, checked: new Array(prev.checked.length).fill(false) }));
+    setDay((prev) => ({
+      ...prev,
+      checked: new Array(prev.checked.length).fill(false),
+      times: new Array(prev.times.length).fill(null),
+    }));
     setConfirmReset(false);
   };
 
   const goToCurrentDay = () => {
     const t = todayISO();
-    setDay({ date: t, checked: new Array(setsForDate(t).length).fill(false) });
+    const len = setsForDate(t).length;
+    setDay({ date: t, checked: new Array(len).fill(false), times: new Array(len).fill(null) });
     setConfirmReset(false);
   };
 
@@ -259,6 +279,7 @@ export default function App() {
         <div className={"pl-tiles" + (sets.length === 1 ? " single" : "")}>
           {sets.map((n, i) => {
             const isChecked = day.checked[i];
+            const completedAt = day.times[i];
             return (
               <button
                 key={i}
@@ -269,6 +290,9 @@ export default function App() {
                   {isChecked ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                 </span>
                 <span className="pl-tile-num pl-display">{n}</span>
+                {isChecked && completedAt && (
+                  <span className="pl-tile-time pl-mono">{formatTime(completedAt)}</span>
+                )}
                 <span className="pl-tile-label pl-mono">SET {i + 1}</span>
               </button>
             );
@@ -364,6 +388,7 @@ const CSS = `
 .pl-tile-icon{ position:absolute; top:12px; right:12px; color:var(--ink-soft); }
 .pl-tile.done .pl-tile-icon{ color:var(--accent); }
 .pl-tile-num{ font-size:30px; line-height:1; }
+.pl-tile-time{ font-size:11.5px; letter-spacing:.03em; color:var(--accent); }
 .pl-tile-label{ font-size:10.5px; letter-spacing:.08em; color:var(--ink-soft); }
 .pl-tile.done .pl-tile-label{ color:rgba(245,242,234,0.65); }
 .pl-tile.single .pl-tile-num{ font-size:44px; }
